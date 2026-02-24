@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package telemetry;
+
+message SensorSnapshot {
+  string vehicle_id = 1;
+  int64 timestamp_ms = 2;
+  float speed_ms = 3;
+  float battery_pct = 4;
+  float motor_temp_c = 5;
+  repeated float imu_accel = 6;
+}
