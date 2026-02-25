@@ -3,6 +3,16 @@
 A fault-tolerant ingestion pipeline for high-frequency binary sensor data from simulated
 EV fleets, with a live React dashboard for monitoring and failure simulation.
 
+**[CLICK HERE FOR LIVE DEMO!💻](https://edgelink-proxy.vercel.app)**
+
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Protobuf](https://img.shields.io/badge/Protobuf-binary-4285F4?style=flat-square&logo=google&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis_Streams-DC382D?style=flat-square&logo=redis&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+
 ## Problem
 
 Vehicles emit continuous sensor snapshots (speed, battery, motor temp, IMU) at high
@@ -11,12 +21,21 @@ This system guarantees delivery using a durable stream buffer that replays unack
 messages on consumer restart or network recovery.
 
 ## Architecture
-```
-Vehicle Simulator → FastAPI Ingest → Redis Stream → Consumer Worker → PostgreSQL
-                          ↓                ↑
-                     WebSocket          Stream lag
-                          ↓
-                    React Dashboard
+```mermaid
+graph TD
+    A([Vehicle Simulator]) -->|Protobuf binary| B[FastAPI Ingest Gateway]
+    B -->|XADD| C[(Redis Stream)]
+    C -->|XREADGROUP| D[Consumer Worker]
+    D -->|INSERT| E[(PostgreSQL)]
+    B -->|WebSocket| F[React Dashboard]
+    C -->|Stream lag poll| F
+
+    style A fill:#1a2332,stroke:#00ff88,color:#00ff88
+    style B fill:#1a2332,stroke:#4a9eff,color:#4a9eff
+    style C fill:#1a2332,stroke:#ff4444,color:#ff4444
+    style D fill:#1a2332,stroke:#4a9eff,color:#4a9eff
+    style E fill:#1a2332,stroke:#ffaa00,color:#ffaa00
+    style F fill:#1a2332,stroke:#00ff88,color:#00ff88
 ```
 
 ## Key Design Decisions
@@ -41,8 +60,8 @@ Benchmarked with Locust simulating 50 concurrent vehicles:
 | Scenario | Throughput | Median Latency | p95 Latency | Message Loss |
 |---|---|---|---|---|
 | 50 concurrent vehicles | 540 req/s | 14ms | 41ms | 0 |
-| 30s network partition | — | — | — | 0 |
-| Consumer restart | — | — | — | 0 |
+| Network partition (30s) | buffered | — | — | 0 |
+| Consumer restart | replayed | — | — | 0 |
 
 ![Locust benchmark](docs/locust-benchmark.png)
 
@@ -84,6 +103,14 @@ docker compose start consumer       # watch it drain, zero loss
 - Real-time data push via WebSockets bridging backend pipeline to React frontend
 - Designing observable failure: the system degrades gracefully and self-heals
 
-## Stack
+## Limitations & Future Improvements
 
-Python · FastAPI · Protobuf · Redis Streams · PostgreSQL · React · Recharts · Docker · Locu
+The WebSocket broadcaster currently fans out every message to every connected client. At scale this would need per-vehicle pub/sub channels to avoid unnecessary traffic.
+
+The consumer is a single worker. Horizontal scaling would require partition-aware consumer group coordination across multiple instances.
+
+The ingest endpoint has no authentication. A production deployment would need mTLS or API key validation per device.
+
+WebSocket client state lives in a Python list, which breaks across multiple FastAPI processes. A Redis pub/sub layer would be needed to scale the gateway horizontally.
+
+Protobuf handles field additions gracefully but deletions are breaking changes. A schema registry would be required for a multi-team production environment.
