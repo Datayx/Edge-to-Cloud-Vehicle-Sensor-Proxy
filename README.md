@@ -49,7 +49,7 @@ graph TD
 ## Dashboard Features
 
 - Live sensor readings per vehicle (speed, battery %, motor temp, IMU)
-- Stream lag graph — visualises buffer depth in real time
+- Stream lag graph. Visualises buffer depth in real time
 - Fault injection: pause/resume consumer from the UI and watch lag spike and self-heal
 - Vehicle selector for per-device inspection
 
